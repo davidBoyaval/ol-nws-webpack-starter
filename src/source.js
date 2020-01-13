@@ -14,15 +14,21 @@ import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
 var image = new CircleStyle({
   radius: 5,
   fill: null,
-  stroke: new Stroke({color: 'red', width: 1})
+  stroke: new Stroke({color: 'red', width: 5})
 });
 
+var PointHover= new Style({
+  image: new CircleStyle({
+    radius: 10,
+    fill: null,
+    stroke: new Stroke({color: 'green', width: 10})
+  })
+})
 var styles = {
   'Point': new Style({
     image: image
-  })
-};
-
+  }),
+}
 var styleFunction = function(feature) {
   return styles[feature.getGeometry().getType()];
 };
@@ -61,14 +67,11 @@ var geojsonObject = {
 var vectorSource = new VectorSource({
   features: (new GeoJSON()).readFeatures(geojsonObject)
 });
-
 vectorSource.addFeature(new Feature(new Circle([5e6, 7e6], 1e6)));
-
 var vectorLayer = new VectorLayer({
   source: vectorSource,
   style: styleFunction
 });
-
 var map = new Map({
   layers: [
     new TileLayer({
@@ -82,4 +85,17 @@ var map = new Map({
     center: nws,
     zoom: 12
   })
+});
+var selected = null;
+map.on('pointermove', function(e){
+  if (selected !== null){
+    selected.setStyle(undefined);
+    selected = null;
+  }
+  map.forEachFeatureAtPixel(e.pixel, function(f){
+    console.log(f);
+    selected = f;
+    f.setStyle(PointHover);
+    return true;
+  });
 });
