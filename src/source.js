@@ -87,10 +87,21 @@ xhttp.onreadystatechange = function() {
         if (selected !== null){
           selected.setStyle(undefined);
           selected = null;
+          overlay.setPosition(undefined);
         }
         map.forEachFeatureAtPixel(e.pixel, function(f){
           selected = f;
           f.setStyle(PointHover);
+          var coordinate = e.coordinate;
+          content.innerHTML = '<h3>' + f.get('libelle') + '</h3>' + 
+                                       f.get('adresse') + '</br>' +
+                              'poste occupés: ' + f.get('poste') + '</br>' +
+                              'Sujets des stages/alternances: ' +  f.get('sujet') + '</br>' +
+                              'code APE: ' +  f.get('code_APE') + '</br>' +
+                              'CA: ' +  f.get('CA') + '</br>' +
+                              'filière: ' +  f.get('filiere') + '</br>' +
+                              'dates: ' +  f.get('date');
+          overlay.setPosition(coordinate);
           return true;
         });
       });
@@ -101,17 +112,6 @@ xhttp.onreadystatechange = function() {
         content.innerHTML = '<p>You clicked here:</p><code>' + hdms +
             '</code>';
         overlay.setPosition(coordinate);
-      });
-      map.on('pointermove', function(e){
-        if (selected !== null){
-          selected.setStyle(undefined);
-          selected = null;
-        }
-        map.forEachFeatureAtPixel(e.pixel, function(f){
-          selected = f;
-          f.setStyle(PointHover);
-          return true;
-        });
       });
   }
 };
