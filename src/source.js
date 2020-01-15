@@ -6,24 +6,30 @@ import Map from 'ol/Map';
 import View from 'ol/View';
 import GeoJSON from 'ol/format/GeoJSON';
 import Circle from 'ol/geom/Circle';
+import {toStringHDMS} from 'ol/coordinate';
 import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer';
 import {OSM, Vector as VectorSource} from 'ol/source';
 import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
+import Overlay from 'ol/Overlay';
+import {toLonLat} from 'ol/proj';
 
-
+var container = document.getElementById('popup');
+var content = document.getElementById('popup-content');
+var closer = document.getElementById('popup-closer');
+var geojsonObject;
+var nws = transform([1.066530, 49.428470], 'EPSG:4326', 'EPSG:3857');
 var image = new CircleStyle({
   radius: 5,
   fill: null,
   stroke: new Stroke({color: 'red', width: 5})
 });
-
 var PointHover= new Style({
   image: new CircleStyle({
     radius: 10,
     fill: null,
     stroke: new Stroke({color: 'green', width: 10})
   })
-})
+});
 var styles = {
   'Point': new Style({
     image: image
@@ -31,71 +37,114 @@ var styles = {
 }
 var styleFunction = function(feature) {
   return styles[feature.getGeometry().getType()];
-};
-var isdflaubert = transform([1.09932, 49.4431], 'EPSG:4326', 'EPSG:3857');
-var copeaux = transform([1.0615, 49.4134], 'EPSG:4326', 'EPSG:3857');
-var nws = transform([1.066530, 49.428470], 'EPSG:4326', 'EPSG:3857');
-var geojsonObject = {
-  'type': 'FeatureCollection',
-  'crs': {
-    'type': 'name',
-    'properties': {
-      'name': 'EPSG:3857'
-    }
-  },
-  'features': [{
-    'type': 'Feature',
-    'geometry': {
-      'type': 'Point',
-      'coordinates': nws
-    }
-  }, {
-    'type': 'Feature',
-    'geometry': {
-      'type': 'Point',
-      'coordinates': copeaux
-    }
-  }, {
-    'type': 'Feature',
-    'geometry': {
-      'type': 'Point',
-      'coordinates': isdflaubert
-    }
-  }]
-};
+}
 
-var vectorSource = new VectorSource({
-  features: (new GeoJSON()).readFeatures(geojsonObject)
-});
-vectorSource.addFeature(new Feature(new Circle([5e6, 7e6], 1e6)));
-var vectorLayer = new VectorLayer({
-  source: vectorSource,
-  style: styleFunction
-});
-var map = new Map({
-  layers: [
-    new TileLayer({
-      source: new OSM()
-    }),
-    vectorLayer
-  ],
-  target: 'carteNWS',
-  view: new View({
-    projection: 'EPSG:3857',
-    center: nws,
-    zoom: 12
-  })
-});
-var selected = null;
-map.on('pointermove', function(e){
-  if (selected !== null){
-    selected.setStyle(undefined);
-    selected = null;
+var xhttp = new XMLHttpRequest();
+var url = "http://localhost:8080/site/geolocalisation";
+xhttp.onreadystatechange = function() {
+  if (this.readyState == 4 && this.status == 200) {
+      geojsonObject = JSON.parse(this.responseText);
+      geojsonObject['features'].forEach(element => {
+        element['geometry']['coordinates']=transform(element['geometry']['coordinates'],'EPSG:4326', 'EPSG:3857');
+      });
+      var vectorSource = new VectorSource({
+        features: (new GeoJSON()).readFeatures(geojsonObject)
+      });
+      vectorSource.addFeature(new Feature(new Circle([5e6, 7e6], 1e6)));
+      var vectorLayer = new VectorLayer({
+        source: vectorSource,
+        style: styleFunction
+      });
+      var overlay = new Overlay({
+        element: container,
+        autoPan: true,
+        autoPanAnimation: {
+          duration: 250
+        }
+      });
+      closer.onclick = function() {
+        overlay.setPosition(undefined);
+        closer.blur();
+        return false;
+      };
+      var map = new Map({
+        layers: [
+          new TileLayer({
+            source: new OSM()
+          }),
+          vectorLayer
+        ],
+        overlays: [overlay],
+        target: 'carteNWS',
+        view: new View({
+          projection: 'EPSG:3857',
+          center: nws,
+          zoom: 12
+        })
+      });
+      var selected = null;
+      map.on('pointermove', function(e){
+        if (selected !== null){
+          selected.setStyle(undefined);
+          selected = null;
+        }
+        map.forEachFeatureAtPixel(e.pixel, function(f){
+          selected = f;
+          f.setStyle(PointHover);
+          return true;
+        });
+      });
+      map.on('singleclick', function(evt) {
+        var coordinate = evt.coordinate;
+        var hdms = toStringHDMS(toLonLat(coordinate));
+
+        content.innerHTML = '<p>You clicked here:</p><code>' + hdms +
+            '</code>';
+        overlay.setPosition(coordinate);
+      });
+      map.on('pointermove', function(e){
+        if (selected !== null){
+          selected.setStyle(undefined);
+          selected = null;
+        }
+        map.forEachFeatureAtPixel(e.pixel, function(f){
+          selected = f;
+          f.setStyle(PointHover);
+          return true;
+        });
+      });
   }
-  map.forEachFeatureAtPixel(e.pixel, function(f){
-    console.log(f);
-    selected = f;
-    f.setStyle(PointHover);
-    return true;
-  });
-});
+};
+xhttp.open("GET",url, true);
+xhttp.send();
+
+
+
+// var geojsonObject = {
+//   'type': 'FeatureCollection',
+//   'crs': {
+//     'type': 'name',
+//     'properties': {
+//       'name': 'EPSG:3857'
+//     }
+//   },
+//   'features': [{
+//     'type': 'Feature',
+//     'geometry': {
+//       'type': 'Point',
+//       'coordinates': nws
+//     }
+//   }, {
+//     'type': 'Feature',
+//     'geometry': {
+//       'type': 'Point',
+//       'coordinates': copeaux
+//     }
+//   }, {
+//     'type': 'Feature',
+//     'geometry': {
+//       'type': 'Point',
+//       'coordinates': isdflaubert
+//     }
+//   }]
+// };
